@@ -1,28 +1,26 @@
 state("GRIME") {}
 
 startup {
-    dynamic unity = Assembly.Load(File.ReadAllBytes(@"Components\asl-help")).CreateInstance("Unity");
-	
-	vars.gsfFlagNames = new List<string>();
-	vars.gsfFlagValues = new List<int>();
-	vars.gsfSettingNames = new List<string>();
-	vars.gsfHasSplit = new List<string>();
-	vars.started = false;
-	vars.readyToSplit = false;
-	vars.startTime = DateTime.UtcNow;
-	vars._sh = null;
-	
-	var addGsfSplit = (Action<string, bool, string, string, string, int>)((settingName, defaultValue, caption, category, flagName, flagValue) => {
-		//Multiple flags can bind to the same setting (for multi-language support on area triggers)
-		//As such, only create the setting itself once
-		if (!vars.gsfSettingNames.Contains(settingName)) {		
-			settings.Add(settingName, defaultValue, caption, category);
+	Assembly.Load(File.ReadAllBytes("Components/asl-help")).CreateInstance("Unity");
+
+	vars.gsfData = new List<dynamic>();
+	vars.gsfHasSplit = new HashSet<string>();
+
+	var hasCreated = new HashSet<string>();
+	Action<string, bool, string, string, string, int> addGsfSplit = (id, state, label, parent, flagName, flagValue) => {
+		// Multiple flags can bind to the same setting (for multi-language support on area triggers)
+		// As such, only create the setting itself once
+		if (hasCreated.Add(id)) {
+			settings.Add(id, state, label, parent);
 		}
-		vars.gsfFlagNames.Add(flagName);
-		vars.gsfFlagValues.Add(flagValue);
-		vars.gsfSettingNames.Add(settingName);
-	});
-	
+
+		vars.gsfData.Add(new {
+			SettingName = id,
+			FlagName = flagName,
+			FlagValue = flagValue
+		});
+	};
+
 	settings.Add("areas", true, "Area Entry");
 	addGsfSplit("area_cavity", false, "Weeping Cavity", "areas", "Displayed Area: Weeping Cavity", 1);
 	addGsfSplit("area_cavity", false, "Weeping Cavity", "areas", "Displayed Area: 哭泣腔体", 1);
@@ -70,152 +68,105 @@ startup {
 	addGsfSplit("boss_flowerheart", false, "Flowerheart", "bosses", "GSF Boss Flowerheart", 1);
 	addGsfSplit("boss_flowergiant", false, "Giant of Eyes", "bosses", "GSF Boss Flower Rockgiant", 2);
 	addGsfSplit("boss_misbegotten", false, "Misbegotten Amalgam", "bosses", "GSF Boss Amal", 3);
-	
+
 	settings.Add("minis", false, "Minibosses");
 	//addGsfSplit("boss_goldwarrior", false, "Desert Watcher", "minis", "", 3);
 	addGsfSplit("boss_rockgiant", false, "Grieving Rockgiant", "minis", "GSF Stuck Rockgiant Ready", 2);
 	addGsfSplit("boss_acolyte", false, "Artisan of Flesh", "minis", "GSF_Palace Acolyte", 1);
-	
+
 	settings.Add("events", false, "Events");
 	addGsfSplit("event_shidra1", false, "Shidra Intro", "events", "GSF_Collecter_ShidraDiscovered", 1);
 	addGsfSplit("event_shidra2", false, "Shidra Yolk", "events", "GSF ShidraHasEgg", 1);
-	addGsfSplit("event_shidra3", false, "Strand Pickup", "events", "GSF NGP Collection Status", 2);	
+	addGsfSplit("event_shidra3", false, "Strand Pickup", "events", "GSF NGP Collection Status", 2);
 	addGsfSplit("event_shidra4", false, "Shidra Fight Start", "events", "GSF Shidra Fight", 1);
-	
+
 	settings.Add("endings", true, "Endings");
 	addGsfSplit("ending_kinship", true, "Kinship", "endings", "GSF KinshipEndingActivated", 1);
 	//addGsfSplit("ending_weakness", false, "Weakness", "endings", "To Apply Ending Weakness", 1);
 }
 
 init {
-    vars.Helper.TryLoad = (Func<dynamic, bool>)(helper =>
-    {
-        vars._mm = helper["AD_Scripts", "MainMenuHandler"];
-		vars.Manager = helper;
-        return true;
-    });
-	
-	vars.printBytes = (Action<byte[]>)(bytes => {
-		var builder = new StringBuilder();
-		int k = 0;
-		foreach (var b in bytes) {
-			builder.Append(b.ToString("X2"));
-			k++;
-			if ((k & 0x7) == 0)
-				builder.Append(' ');
-		}
-		print(builder.ToString());
-	});
-	
-	vars.readStrIntDict = (Func<IntPtr, Dictionary<string, int>>)(p => {
-		var entriesPtr = vars.Helper.Read<IntPtr>(p + 24);
-		var count = vars.Helper.Read<int>(entriesPtr + 24);
-		if (count <= 0) return null;
+	vars.Helper.TryLoad = (Func<dynamic, bool>)(mono => {
+		Thread.Sleep(3000);
 
-		var result = new Dictionary<string, int>(count);
-		for (int i=0; i < count; i++) {
-			var keyPtr = entriesPtr + 32 + i*24 + 8;
-			if (keyPtr != IntPtr.Zero) {
-				var valPtr = entriesPtr + 32 + i*24 + 16;
-				var key = vars.Helper.ReadString(keyPtr);
-				var value = vars.Helper.Read<int>(valPtr);
-				if (key != null) {
-					result.Add(key, value);
-				}
-			}
+		var mmh = mono["AD_Scripts", "MainMenuHandler"];
+		vars.Helper["startingGame"] = mono.Make<bool>(mmh, "instance", "startingGame");
+
+		vars._sh = mono["AD_Scripts", "SyncHandler"];
+		vars.mono = mono;
+
+		return true;
+	});
+
+	vars.readStrIntDict = (Func<IntPtr, Dictionary<string, int>>)(ptr => {
+		var dict = new Dictionary<string, int>();
+		if (ptr == IntPtr.Zero)
+			return dict;
+
+		var count = vars.Helper.Read<IntPtr>(ptr + 0x40);
+		if (count <= 0)
+			return dict;
+
+		var entries = vars.Helper.Read<IntPtr>(ptr + 0x18);
+		for (int i = 0; i < count; i++) {
+			var entry = entries + 0x20 + 0x18 * i;
+
+			var key = vars.Helper.ReadString(entry + 0x8);
+			if (string.IsNullOrEmpty(key))
+				continue;
+
+			var value = vars.Helper.Read<int>(entry + 0x10);
+			dict[key] = value;
 		}
 
-		return result;
+		return dict;
 	});
-	
-	vars.hasUpdated = false;
+
+	old.startingGame = false;
+	vars.foundSh = false;
+	vars.globalFlags = null;
 }
 
 update {
-	current.startingGame = false;
-	current.count_greatPreyConsumed = 0;
-	vars.globalFlags = null;
-	
-	var mm = vars._mm;
-	if (mm.Static != IntPtr.Zero) {
-		var mmPtr = mm.Static + mm["instance"];
-		if (mmPtr != IntPtr.Zero) {
-			current.startingGame = vars.Helper.Read<bool>(mmPtr, mm["startingGame"]);
-		}
+	if (vars.foundSh) {
+		vars.globalFlags = vars.readStrIntDict(current.globalFlagsPtr);
+		return;
 	}
-	
-	if (vars.readyToSplit) {
-		var sh = vars._sh;
-		var gd = vars._gd;
-		if (sh.Static != IntPtr.Zero && gd.Static != IntPtr.Zero)	{
-			var shPtr = vars.Helper.Read<IntPtr>(sh.Static + sh["instance"]);
-			if (shPtr != IntPtr.Zero) {
-				var gdPtr = vars.Helper.Read<IntPtr>(shPtr + sh["generalData"]);
-				if (gdPtr != IntPtr.Zero) {
-					var dictPtr = vars.Helper.Read<IntPtr>(gdPtr + gd["globalFlags"]);
-					vars.globalFlags = vars.readStrIntDict(dictPtr);
-				}
-			}
-		}
-	}
-	
-	//Delay connecting to gameplay scene data until the game has fully loaded
-	//Currently we use a timer for this purpose, but there might be a better way
-	if (!vars.readyToSplit && vars.started && (DateTime.UtcNow - vars.startTime).TotalSeconds >= 10) {
-		if (vars._sh == null) {
-			vars._sh = vars.Manager["AD_Scripts", "SyncHandler"];
-			vars._gd = vars.Manager["AD_Scripts", "GeneralData"];
-		}
-	
-		vars.readyToSplit = true;
-	}
-	
-	vars.hasUpdated = true;
+
+	if (vars._sh.Static == IntPtr.Zero)
+		return;
+
+	vars.Helper["globalFlagsPtr"] = vars.Mono.Make<IntPtr>(vars._sh, "instance", "generalData", "globalFlags");
+	vars.foundSh = true;
 }
 
 start {
-	if (!vars.hasUpdated) return false;
-	return current.startingGame && !old.startingGame;
-}
-
-onStart {
-	vars.started = true;
-	vars.startTime = DateTime.UtcNow;
+	return !old.startingGame && current.startingGame;
 }
 
 split {
-	if (!vars.hasUpdated) return false;
-	if (!vars.started) return false;
-	
-	//Delay splitting until game has fully loaded
-	if (!vars.readyToSplit) return false;
-	
-	if (vars.globalFlags != null) {
-		int n = vars.gsfSettingNames.Count;
-		for (int i=0; i < n; i++) {
-			var name = vars.gsfSettingNames[i];
-			if (settings[name] && !vars.gsfHasSplit.Contains(name)) {
-				var flagName = vars.gsfFlagNames[i];
-				var flagValue = vars.gsfFlagValues[i];
-				int value;
-				if (vars.globalFlags.TryGetValue(flagName, out value) && value == flagValue) {
-					vars.gsfHasSplit.Add(name);
-					return true;
-				}			
-			}
+	if (vars.globalFlags == null)
+		return;
+
+	var n = vars.gsfSettingNames.Count;
+	for (int i = 0; i < n; i++) {
+		var data = vars.gsfData[i];
+		var name = data.SettingName;
+
+		if (!settings[name] || vars.gsfHasSplit.Contains(name))
+			continue;
+
+		var flagName = data.FlagName;
+		var flagValue = data.FlagValue;
+
+		int value;
+		if (vars.globalFlags.TryGetValue(flagName, out value) && value == flagValue) {
+			vars.gsfHasSplit.Add(name);
+			return true;
 		}
 	}
-	
-    return false;
-}
-
-isLoading {
-	return false;
 }
 
 onReset {
 	vars.gsfHasSplit.Clear();
-	vars.hasUpdated = false;
-	vars.started = false;
-	vars.readyToSplit = false;
 }
