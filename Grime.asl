@@ -1,6 +1,7 @@
 state("GRIME") {}
 
 startup {
+    refreshRate = 20;
     dynamic unity = Assembly.Load(File.ReadAllBytes(@"Components\asl-help")).CreateInstance("Unity");
 	
 	vars.gsfFlagNames = new List<string>();
@@ -71,10 +72,13 @@ startup {
 	addGsfSplit("boss_flowergiant", false, "Giant of Eyes", "bosses", "GSF Boss Flower Rockgiant", 2);
 	addGsfSplit("boss_misbegotten", false, "Misbegotten Amalgam", "bosses", "GSF Boss Amal", 3);
 	
-	settings.Add("minis", false, "Minibosses");
-	//addGsfSplit("boss_goldwarrior", false, "Desert Watcher", "minis", "", 3);
-	addGsfSplit("boss_rockgiant", false, "Grieving Rockgiant", "minis", "GSF Stuck Rockgiant Ready", 2);
-	addGsfSplit("boss_acolyte", false, "Artisan of Flesh", "minis", "GSF_Palace Acolyte", 1);
+	settings.Add("mini_bosses", false, "Minibosses");
+	addGsfSplit("mini_boss_rockgiant", false, "Rockgiant", "mini_bosses", "Miniboss Dead: Rockgiant", 1);
+	addGsfSplit("mini_boss_desert_watcher", false, "Desert Watcher", "mini_bosses", "Miniboss Dead: Desert Watcher", 1);
+	addGsfSplit("mini_boss_jawstag", false, "Jawstag", "mini_bosses", "Miniboss Dead: Jawstag", 1);
+	addGsfSplit("mini_boss_grieving_rockgiant", false, "Grieving Rockgiant", "mini_bosses", "Miniboss Dead: Grieving Rockgiant", 1);
+	addGsfSplit("mini_boss_jawcrab", false, "Jawcrab", "mini_bosses", "Miniboss Dead: Jawcrab", 1);
+	addGsfSplit("mini_boss_artisan_of_flesh", false, "Artisan of Flesh", "mini_bosses", "Miniboss Dead: Artisan of Flesh", 1);
 	
 	settings.Add("events", false, "Events");
 	addGsfSplit("event_shidra1", false, "Shidra Intro", "events", "GSF_Collecter_ShidraDiscovered", 1);
@@ -135,6 +139,7 @@ update {
 	current.startingGame = false;
 	current.count_greatPreyConsumed = 0;
 	vars.globalFlags = null;
+    vars.mapMarkers = null;
 	
 	var mm = vars._mm;
 	if (mm.Static != IntPtr.Zero) {
@@ -152,8 +157,8 @@ update {
 			if (shPtr != IntPtr.Zero) {
 				var gdPtr = vars.Helper.Read<IntPtr>(shPtr + sh["generalData"]);
 				if (gdPtr != IntPtr.Zero) {
-					var dictPtr = vars.Helper.Read<IntPtr>(gdPtr + gd["globalFlags"]);
-					vars.globalFlags = vars.readStrIntDict(dictPtr);
+					vars.globalFlags = vars.readStrIntDict(vars.Helper.Read<IntPtr>(gdPtr + gd["globalFlags"]));
+					vars.mapMarkers = vars.readStrIntDict(vars.Helper.Read<IntPtr>(gdPtr + gd["mapData_markers"]));
 				}
 			}
 		}
@@ -190,21 +195,19 @@ split {
 	//Delay splitting until game has fully loaded
 	if (!vars.readyToSplit) return false;
 	
-	if (vars.globalFlags != null) {
-		int n = vars.gsfSettingNames.Count;
-		for (int i=0; i < n; i++) {
-			var name = vars.gsfSettingNames[i];
-			if (settings[name] && !vars.gsfHasSplit.Contains(name)) {
-				var flagName = vars.gsfFlagNames[i];
-				var flagValue = vars.gsfFlagValues[i];
-				int value;
-				if (vars.globalFlags.TryGetValue(flagName, out value) && value == flagValue) {
-					vars.gsfHasSplit.Add(name);
-					return true;
-				}			
-			}
-		}
-	}
+    for (int i=0; i < vars.gsfSettingNames.Count; i++) {
+        var name = vars.gsfSettingNames[i];
+        if (!settings[name] || vars.gsfHasSplit.Contains(name)) {
+            continue;
+        }
+        var flagName = vars.gsfFlagNames[i];
+        var flagValue = vars.gsfFlagValues[i];
+        int value;
+        if ((vars.globalFlags != null && vars.globalFlags.TryGetValue(flagName, out value) && value == flagValue) || (vars.mapMarkers != null && vars.mapMarkers.ContainsKey(flagName))) {
+            vars.gsfHasSplit.Add(name);
+            return true;
+        }
+    }
 	
     return false;
 }
