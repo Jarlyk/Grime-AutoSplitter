@@ -31,8 +31,9 @@ startup {
 	});
     
     //Areas
-	settings.Add("areas", true, "Area");
-	settings.SetToolTip("areas", "splits when the area is entered for the first time");
+    vars.categoryArea = "areas";
+	settings.Add(vars.categoryArea, true, "Area");
+	settings.SetToolTip(vars.categoryArea, "splits when the area is entered for the first time");
     vars.areas = new object[,] {
         {"area_cavity", false, "Weeping Cavity", "AreaTitle/Weeping Cavity", 0, false},
         {"area_yrden", false, "Yr Den", "AreaTitle/Warrior Den", 0, false},
@@ -51,11 +52,12 @@ startup {
         {"area_peakcreation", false, "Peak of Creation", "AreaTitle/Peak Of Creation", 0, false},
         {"area_garden", false, "Garden", "AreaTitle/Garden", 0, false}
     };
-    addSplits(vars.areas, "areas");
+    addSplits(vars.areas, vars.categoryArea);
 	
     //Surrogates
-	settings.Add("surrogates", false, "Surrogate");
-	settings.SetToolTip("surrogates", "splits when the surrogate is activated");
+    vars.categorySurrogate = "surrogates";
+	settings.Add(vars.categorySurrogate, false, "Surrogate");
+	settings.SetToolTip(vars.categorySurrogate, "splits when the surrogate is activated");
     vars.surrogates = new object[,] {
         {"surrogate_cavity_depths", false, "Weeping Cavity - Depths", "AreaTitle/Checkpoint/Weeping Cavity - Depths", 0, false},
         {"surrogate_cavity_tearfalls", false, "Weeping Cavity - Tearfalls", "AreaTitle/Checkpoint/Weeping Cavity - Tearfalls", 0, false},
@@ -84,11 +86,12 @@ startup {
         {"surrogate_between_skies", false, "Worldpillar - Between Two Skies", "AreaTitle/Checkpoint/Worldpillar - Between two skies", 0, false},
         {"surrogate_peak", false, "Peak Of Creation", "AreaTitle/Checkpoint/Peak Of Creation", 0, false}
     };
-    addSplits(vars.surrogates, "surrogates");
+    addSplits(vars.surrogates, vars.categorySurrogate);
 
     //Nervepasses
-	settings.Add("nervepasses", false, "Nervepass");
-	settings.SetToolTip("nervepasses", "splits when the nervepass is opened");
+    vars.categoryNervepass = "nervepasses";
+	settings.Add(vars.categoryNervepass, false, "Nervepass");
+	settings.SetToolTip(vars.categoryNervepass, "splits when the nervepass is opened");
     vars.nervepasses = new object[,] {
         {"nervepass_desert", false, "Unformed Desert", "GSF_Nervepass_Desert", 1, false},
         {"nervepass_lithic", false, "Lithic", "GSF_Nervepass_Lithic", 1, false},
@@ -99,11 +102,12 @@ startup {
         {"nervepass_garden", false, "Garden", "GSF_Nervepass_Garden", 1, false},
         {"nervepass_city", false, "Cenotaph City", "GSF_Nervepass_City", 1, false}
     };
-    addSplits(vars.nervepasses, "nervepasses");
+    addSplits(vars.nervepasses, vars.categoryNervepass);
 
     //Bosses
-	settings.Add("bosses", true, "Boss");
-	settings.SetToolTip("bosses", "splits when the boss is defeated");
+    vars.categoryBoss = "bosses";
+	settings.Add(vars.categoryBoss, true, "Boss");
+	settings.SetToolTip(vars.categoryBoss, "splits when the boss is defeated");
     vars.bosses = new object[,] {
         {"boss_amalgam", true, "Amalgam", "GSF Boss Amal", 2, false},
         {"boss_mothers", true, "Mothers", "GSF Boss Whisper", 3, false},
@@ -116,11 +120,12 @@ startup {
         {"boss_flowergiant", false, "Giant of Eyes", "GSF Boss Flower Rockgiant", 2, false},
         {"boss_misbegotten", false, "Misbegotten Amalgam", "GSF Boss Amal", 3, false}
     };
-    addSplits(vars.bosses, "bosses");
+    addSplits(vars.bosses, vars.categoryBoss);
 
     //Minibosses
-	settings.Add("mini_bosses", false, "Miniboss");
-	settings.SetToolTip("mini_bosses", "splits when the miniboss is defeated");
+    vars.categoryMiniboss = "mini_bosses";
+	settings.Add(vars.categoryMiniboss, false, "Miniboss");
+	settings.SetToolTip(vars.categoryMiniboss, "splits when the miniboss is defeated");
     vars.minibosses = new object[,] {
         {"mini_boss_rockgiant", false, "Rockgiant", "Miniboss Dead: Rockgiant", 0, false},
         {"mini_boss_desert_watcher", false, "Desert Watcher", "Miniboss Dead: Desert Watcher", 0, false},
@@ -129,11 +134,12 @@ startup {
         {"mini_boss_jawcrab", false, "Jawcrab", "Miniboss Dead: Jawcrab", 0, false},
         {"mini_boss_artisan", false, "Artisan of Flesh", "Miniboss Dead: Artisan of Flesh", 0, false}
     };
-    addSplits(vars.minibosses, "mini_bosses");
+    addSplits(vars.minibosses, vars.categoryMiniboss);
 
     //Objectives
-	settings.Add("events", false, "Objective");
-	settings.SetToolTip("events", "splits when the objective is reached");
+    vars.categoryObjective = "events";
+	settings.Add(vars.categoryObjective, false, "Objective");
+	settings.SetToolTip(vars.categoryObjective, "splits when the objective is reached");
     vars.objectives = new object[,] {
         {"event_shidra1", false, "talk to Shidra", "GSF_Collecter_ShidraDiscovered", 1, false},
         {"event_shidra2", false, "give Kilyahstone to Shidra", "GSF ShidraHasEgg", 1, false},
@@ -141,15 +147,16 @@ startup {
         {"event_unsealer", false, "get Unsealer from Shidra", "GSF_City Barrier", 1, false},
         {"event_shidra4", false, "fight Shidra", "GSF Shidra Fight", 1, false}
     };
-    addSplits(vars.objectives, "events");
+    addSplits(vars.objectives, vars.categoryObjective);
 
     //Endings
-	settings.Add("endings", true, "Ending");
-	settings.SetToolTip("endings", "splits when the ending is reached");
+    vars.categoryEnding = "endings";
+	settings.Add(vars.categoryEnding, true, "Ending");
+	settings.SetToolTip(vars.categoryEnding, "splits when the ending is reached");
     vars.endings = new object[,] {
         {"ending_kinship", false, "Kinship", "GSF KinshipEndingActivated", 1, false}
     };
-    addSplits(vars.endings, "endings");
+    addSplits(vars.endings, vars.categoryEnding);
     
 }
 
@@ -290,8 +297,8 @@ split {
 	//Delay splitting until game has fully loaded
 	if (!vars.readyToSplit) return false;
 
-    var checkSplits = (Func<object[,], List<string>, bool>) ((splits, flags) => {
-        if (flags != null) {
+    var checkSplits = (Func<string, object[,], List<string>, bool>) ((category, splits, flags) => {
+        if (flags != null && settings[category]) {
             for (int i = 0; i <= splits.GetUpperBound(0); i++) {
                 if (!settings[(string)splits[i, vars.indexOfName]] || (bool)splits[i, vars.indexOfIsSplit]) {
                     continue;
@@ -307,8 +314,8 @@ split {
         return false;
     });
 
-    var checkSplitsWithValues = (Func<object[,], Dictionary<string, int>, bool, bool>) ((splits, flags, ignoreValues) => {
-        if (flags != null) {
+    var checkSplitsWithValues = (Func<string, object[,], Dictionary<string, int>, bool, bool>) ((category, splits, flags, ignoreValues) => {
+        if (flags != null && settings[category]) {
             for (int i = 0; i <= splits.GetUpperBound(0); i++) {
                 if (!settings[(string)splits[i, vars.indexOfName]] || (bool)splits[i, vars.indexOfIsSplit]) {
                     continue;
@@ -325,13 +332,13 @@ split {
         return false;
     });
     
-    if (checkSplits(vars.areas, vars.visitedAreas)) return true;
-    if (checkSplits(vars.surrogates, vars.unlockedCheckpoints)) return true;
-    if (checkSplitsWithValues(vars.nervepasses, vars.globalFlags, false)) return true;
-    if (checkSplitsWithValues(vars.bosses, vars.globalFlags, false)) return true;
-    if (checkSplitsWithValues(vars.minibosses, vars.mapMarkers, true)) return true;
-    if (checkSplitsWithValues(vars.objectives, vars.globalFlags, false)) return true;
-    if (checkSplitsWithValues(vars.endings, vars.globalFlags, false)) return true;
+    if (checkSplits(vars.categoryArea, vars.areas, vars.visitedAreas)) return true;
+    if (checkSplits(vars.categorySurrogate, vars.surrogates, vars.unlockedCheckpoints)) return true;
+    if (checkSplitsWithValues(vars.categoryNervepass, vars.nervepasses, vars.globalFlags, false)) return true;
+    if (checkSplitsWithValues(vars.categoryBoss, vars.bosses, vars.globalFlags, false)) return true;
+    if (checkSplitsWithValues(vars.categoryMiniboss, vars.minibosses, vars.mapMarkers, true)) return true;
+    if (checkSplitsWithValues(vars.categoryObjective, vars.objectives, vars.globalFlags, false)) return true;
+    if (checkSplitsWithValues(vars.categoryEnding, vars.endings, vars.globalFlags, false)) return true;
 
     return false;
 }
@@ -350,13 +357,13 @@ onReset {
         if (vars.debugPrint) print("+++++ reset " + nrOfSplitsReset + " splits in category '" + category + "'"); 
 	});
 
-    resetSplits(vars.areas, "areas");
-    resetSplits(vars.surrogates, "surrogates");
-    resetSplits(vars.nervepasses, "nervepasses");
-    resetSplits(vars.bosses, "bosses");
-    resetSplits(vars.minibosses, "mini_bosses");
-    resetSplits(vars.objectives, "events");
-    resetSplits(vars.endings, "endings");
+    resetSplits(vars.areas, vars.categoryArea);
+    resetSplits(vars.surrogates, vars.categorySurrogate);
+    resetSplits(vars.nervepasses, vars.categoryNervepass);
+    resetSplits(vars.bosses, vars.categoryBoss);
+    resetSplits(vars.minibosses, vars.categoryMiniboss);
+    resetSplits(vars.objectives, vars.categoryObjective);
+    resetSplits(vars.endings, vars.categoryEnding);
     
 	vars.hasUpdated = false;
 	vars.started = false;
