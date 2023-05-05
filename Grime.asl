@@ -136,18 +136,20 @@ startup {
     };
     addSplits(vars.minibosses, vars.categoryMiniboss);
 
-    //Objectives
-    vars.categoryObjective = "events";
-	settings.Add(vars.categoryObjective, false, "Objective");
-	settings.SetToolTip(vars.categoryObjective, "splits when the objective is reached");
-    vars.objectives = new object[,] {
+    //Miscellaneous
+    vars.categoryMiscellaneous = "events";
+	settings.Add(vars.categoryMiscellaneous, false, "Miscellaneous");
+	settings.SetToolTip(vars.categoryMiscellaneous, "splits when the action got performed");
+    vars.miscellaneous = new object[,] {
         {"event_shidra1", false, "talk to Shidra", "GSF_Collecter_ShidraDiscovered", 1, false},
         {"event_shidra2", false, "give Kilyahstone to Shidra", "GSF ShidraHasEgg", 1, false},
+        {"event_palace_elevator_mid", false, "call elevator on middle floor in Carven Palace", "GSF_PalaceElevator_Floor_Mid", 1, false},
+        {"event_palace_elevator_high", false, "call elevator on high floor in Carven Palace", "GSF_PalaceElevator_Floor_High", 1, false},
         {"event_shidra3", false, "pick up Strand of Child", "GSF NGP Collection Status", 2, false},
         {"event_unsealer", false, "get Unsealer from Shidra", "GSF_City Barrier", 1, false},
         {"event_shidra4", false, "fight Shidra", "GSF Shidra Fight", 1, false}
     };
-    addSplits(vars.objectives, vars.categoryObjective);
+    addSplits(vars.miscellaneous, vars.categoryMiscellaneous);
 
     //Endings
     vars.categoryEnding = "endings";
@@ -161,6 +163,10 @@ startup {
 }
 
 init {
+	vars.globalFlags = null;
+    vars.mapMarkers = null;
+    vars.visitedAreas = null;
+    vars.unlockedCheckpoints = null;
     vars.Helper.TryLoad = (Func<dynamic, bool>)(helper =>
     {
         vars._mm = helper["AD_Scripts", "MainMenuHandler"];
@@ -168,13 +174,12 @@ init {
         return true;
     });
 
-	vars.readStrIntDict = (Func<IntPtr, Dictionary<string, int>>)(p => {
-        var basePtr = vars.Helper.Read<IntPtr>(p);
-		var entriesPtr = vars.Helper.Read<IntPtr>(basePtr + 24);
+	vars.readStrIntDict = (Func<IntPtr, Dictionary<string, int>, Dictionary<string, int>>)((basePtr, currentDictionary) => {
+        var derefPtr = vars.Helper.Read<IntPtr>(basePtr);
+		var entriesPtr = vars.Helper.Read<IntPtr>(derefPtr + 24);
 		var count = vars.Helper.Read<int>(entriesPtr + 24);
 		if (count <= 0) return null;
-
-		var result = new Dictionary<string, int>(count);
+		var result = currentDictionary != null ? currentDictionary : new Dictionary<string, int>(256);
 		for (int i=0; i < count; i++) {
 			var keyPtr = entriesPtr + 32 + i*24 + 8;
 			if (keyPtr != IntPtr.Zero) {
@@ -182,19 +187,21 @@ init {
 				var key = vars.Helper.ReadString(keyPtr);
 				var value = vars.Helper.Read<int>(valPtr);
 				if (key != null) {
-					result.Add(key, value);
+					result[key] = value;
 				}
 			}
 		}
 		return result;
 	});
     
-	vars.readStrList = (Func<IntPtr, List<string>>)(p => {
-        var derefPtr = vars.Helper.Read<IntPtr>(p);
+	vars.readStrList = (Func<IntPtr, List<string>, List<string>>)((basePtr, currentList) => {
+        var derefPtr = vars.Helper.Read<IntPtr>(basePtr);
 		var count = vars.Helper.Read<int>(derefPtr + 24);
 		if (count <= 0) return null;
+        if ((currentList != null) && (count == currentList.Count)) return currentList;
 		var itemsPtr = vars.Helper.Read<IntPtr>(derefPtr + 16);
-		var result = new List<string>(count);
+		var result = currentList != null ? currentList : new List<string>(256);
+        result.Clear();
 		for (int i = 0; i < count; i++) {
 			var itemPtr = itemsPtr + 32 + (i * 8);
 			if (itemPtr != IntPtr.Zero) {
@@ -212,12 +219,6 @@ init {
 
 update {
 	current.startingGame = false;
-	current.count_greatPreyConsumed = 0;
-	vars.globalFlags = null;
-    vars.mapMarkers = null;
-    vars.visitedAreas = null;
-    vars.unlockedCheckpoints = null;
-	
 	var mm = vars._mm;
 	if (mm.Static != IntPtr.Zero) {
 		var mmPtr = mm.Static + mm["instance"];
@@ -234,10 +235,16 @@ update {
 			if (shPtr != IntPtr.Zero) {
 				var gdPtr = vars.Helper.Read<IntPtr>(shPtr + sh["generalData"]);
 				if (gdPtr != IntPtr.Zero) {
-					vars.globalFlags = vars.readStrIntDict(gdPtr + gd["globalFlags"]);
-					vars.mapMarkers = vars.readStrIntDict(gdPtr + gd["mapData_markers"]);
-                    vars.visitedAreas = vars.readStrList(gdPtr + gd["visitedAreaNameTerms"]);
-                    vars.unlockedCheckpoints = vars.readStrList(gdPtr + gd["unlockedCheckpoints"]);
+					vars.globalFlags = vars.readStrIntDict(gdPtr + gd["globalFlags"], vars.globalFlags);
+                    if (settings[vars.categoryMiniboss]) {
+                        vars.mapMarkers = vars.readStrIntDict(gdPtr + gd["mapData_markers"], vars.mapMarkers);
+                    }
+                    if (settings[vars.categoryArea]) {
+                        vars.visitedAreas = vars.readStrList(gdPtr + gd["visitedAreaNameTerms"], vars.visitedAreas);
+                    }
+                    if (settings[vars.categorySurrogate]) {
+                        vars.unlockedCheckpoints = vars.readStrList(gdPtr + gd["unlockedCheckpoints"], vars.unlockedCheckpoints);
+                    }
                     if (!vars.debugPrinted) {
                         if (vars.globalFlags != null) {
                             foreach (string globalFlag in vars.globalFlags.Keys) {
@@ -337,7 +344,7 @@ split {
     if (checkSplitsWithValues(vars.categoryNervepass, vars.nervepasses, vars.globalFlags, false)) return true;
     if (checkSplitsWithValues(vars.categoryBoss, vars.bosses, vars.globalFlags, false)) return true;
     if (checkSplitsWithValues(vars.categoryMiniboss, vars.minibosses, vars.mapMarkers, true)) return true;
-    if (checkSplitsWithValues(vars.categoryObjective, vars.objectives, vars.globalFlags, false)) return true;
+    if (checkSplitsWithValues(vars.categoryMiscellaneous, vars.miscellaneous, vars.globalFlags, false)) return true;
     if (checkSplitsWithValues(vars.categoryEnding, vars.endings, vars.globalFlags, false)) return true;
 
     return false;
@@ -362,9 +369,13 @@ onReset {
     resetSplits(vars.nervepasses, vars.categoryNervepass);
     resetSplits(vars.bosses, vars.categoryBoss);
     resetSplits(vars.minibosses, vars.categoryMiniboss);
-    resetSplits(vars.objectives, vars.categoryObjective);
+    resetSplits(vars.miscellaneous, vars.categoryMiscellaneous);
     resetSplits(vars.endings, vars.categoryEnding);
     
+	vars.globalFlags = null;
+    vars.mapMarkers = null;
+    vars.visitedAreas = null;
+    vars.unlockedCheckpoints = null;
 	vars.hasUpdated = false;
 	vars.started = false;
 	vars.readyToSplit = false;
