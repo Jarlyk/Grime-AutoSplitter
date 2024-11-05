@@ -12,6 +12,7 @@ startup {
 	vars.readyToSplit = false;
 	vars.startTime = DateTime.UtcNow;
 	vars._sh = null;
+	vars._fadeHandler = null;
     vars.debugPrinted = !vars.debugPrint;
 
     vars.indexOfName = 0;
@@ -118,9 +119,27 @@ startup {
         {"boss_flowervulture", false, "Surrogate Vulture", "GSF Boss Flower Vulture", 1, false},
         {"boss_flowerheart", false, "Flowerheart", "GSF Boss Flowerheart", 1, false},
         {"boss_flowergiant", false, "Giant of Eyes", "GSF Boss Flower Rockgiant", 2, false},
-        {"boss_misbegotten", false, "Misbegotten Amalgam", "GSF Boss Amal", 3, false}
+        {"boss_misbegotten", false, "Misbegotten Amalgam", "GSF Boss Amal", 3, false},
+        {"boss_dreamborn", false, "Dreamborn Terror", "GSF_Dreamborn", 1, false}
     };
     addSplits(vars.bosses, vars.categoryBoss);
+
+    //Boss Starts
+    vars.categoryBossStarts = "boss_starts";
+    settings.Add(vars.categoryBossStarts, true, "Boss Starts");
+    settings.SetToolTip(vars.categoryBossStarts, "splits when the boss fight starts");
+    vars.bossStarts = new object[,] {
+        {"boss_start_amalgam", false, "Amalgam", "Boss Alive: Amalgam", 0, false},
+        {"boss_start_mothers", false, "Mothers", "Boss Alive: Whispering Mothers", 0, false},
+        {"boss_start_vulture", false, "Vulture", "Boss Alive: Vulture", 0, false},
+        {"boss_start_fidus", false, "Fidus", "Boss Alive: Shapely Fidus", 0, false},
+        {"boss_start_tfp", false, "The Final Performance", "Boss Alive: The Final Performance", 0, false},
+        {"boss_start_flowervulture", false, "Surrogate Vulture", "Boss Alive: Surrogate Vulture", 0, false},
+        {"boss_start_flowerheart", false, "Flowerheart", "Boss Alive: Flowerheart", 0, false},
+        {"boss_start_flowergiant", false, "Giant of Eyes", "Boss Alive: Giant of Eyes", 0, false},
+        {"boss_start_misbegotten", false, "Misbegotten Amalgam", "Boss Alive: Misbegotten Amalgam", 0, false}
+    };
+    addSplits(vars.bossStarts, vars.categoryBossStarts);
 
     //Minibosses
     vars.categoryMiniboss = "mini_bosses";
@@ -219,11 +238,18 @@ init {
 
 update {
 	current.startingGame = false;
+	current.mmPanelIndex = -1;
+
 	var mm = vars._mm;
 	if (mm.Static != IntPtr.Zero) {
 		var mmPtr = mm.Static + mm["instance"];
 		if (mmPtr != IntPtr.Zero) {
 			current.startingGame = vars.Helper.Read<bool>(mmPtr, mm["startingGame"]);
+			current.mmPanelIndex = vars.Helper.Read<int>(mmPtr, mm["currentPanelIndex"]);
+
+			if (vars._fadeHandler == null) {
+                vars._fadeHandler = vars.Manager["AD_Scripts", "GUI_FadeScreenHandler"];
+			}
 		}
 	}
 	
@@ -236,7 +262,7 @@ update {
 				var gdPtr = vars.Helper.Read<IntPtr>(shPtr + sh["generalData"]);
 				if (gdPtr != IntPtr.Zero) {
 					vars.globalFlags = vars.readStrIntDict(gdPtr + gd["globalFlags"], vars.globalFlags);
-                    if (settings[vars.categoryMiniboss]) {
+                    if (settings[vars.categoryMiniboss] || settings[vars.categoryBossStarts]) {
                         vars.mapMarkers = vars.readStrIntDict(gdPtr + gd["mapData_markers"], vars.mapMarkers);
                     }
                     if (settings[vars.categoryArea]) {
@@ -272,17 +298,17 @@ update {
 			}
 		}
 	}
-	
-	//Delay connecting to gameplay scene data until the game has fully loaded
-	//Currently we use a timer for this purpose, but there might be a better way
-	if (!vars.readyToSplit && vars.started && (DateTime.UtcNow - vars.startTime).TotalSeconds >= 10) {
-		if (vars._sh == null) {
-			vars._sh = vars.Manager["AD_Scripts", "SyncHandler"];
-			vars._gd = vars.Manager["AD_Scripts", "GeneralData"];
-		}
-	
-		vars.readyToSplit = true;
-	}
+
+    //Delay connecting to gameplay scene data until the game has fully loaded
+    //Currently we use a timer for this purpose, but there might be a better way
+    if (!vars.readyToSplit && vars.started && (DateTime.UtcNow - vars.startTime).TotalSeconds >= 10) {
+        if (vars._sh == null) {
+            vars._sh = vars.Manager["AD_Scripts", "SyncHandler"];
+            vars._gd = vars.Manager["AD_Scripts", "GeneralData"];
+        }
+
+        vars.readyToSplit = true;
+    }
 	
 	vars.hasUpdated = true;
 }
@@ -343,15 +369,12 @@ split {
     if (checkSplits(vars.categorySurrogate, vars.surrogates, vars.unlockedCheckpoints)) return true;
     if (checkSplitsWithValues(vars.categoryNervepass, vars.nervepasses, vars.globalFlags, false)) return true;
     if (checkSplitsWithValues(vars.categoryBoss, vars.bosses, vars.globalFlags, false)) return true;
+    if (checkSplitsWithValues(vars.categoryBossStarts, vars.bossStarts, vars.mapMarkers, true)) return true;
     if (checkSplitsWithValues(vars.categoryMiniboss, vars.minibosses, vars.mapMarkers, true)) return true;
     if (checkSplitsWithValues(vars.categoryMiscellaneous, vars.miscellaneous, vars.globalFlags, false)) return true;
     if (checkSplitsWithValues(vars.categoryEnding, vars.endings, vars.globalFlags, false)) return true;
 
     return false;
-}
-
-isLoading {
-	return false;
 }
 
 onReset {
@@ -368,6 +391,7 @@ onReset {
     resetSplits(vars.surrogates, vars.categorySurrogate);
     resetSplits(vars.nervepasses, vars.categoryNervepass);
     resetSplits(vars.bosses, vars.categoryBoss);
+    resetSplits(vars.bossStarts, vars.categoryBossStarts);
     resetSplits(vars.minibosses, vars.categoryMiniboss);
     resetSplits(vars.miscellaneous, vars.categoryMiscellaneous);
     resetSplits(vars.endings, vars.categoryEnding);
@@ -380,4 +404,21 @@ onReset {
 	vars.started = false;
 	vars.readyToSplit = false;
     vars.debugPrinted = !vars.debugPrint;
+}
+
+isLoading {
+	if (!vars.started) return false;
+	
+	var fh = vars._fadeHandler;
+	if (fh.Static == IntPtr.Zero) return false;
+	
+	var fhPtr = vars.Helper.Read<IntPtr>(fh.Static + fh["instance"]);
+	if (fhPtr == IntPtr.Zero) return false;
+	
+	//We're defining loading as being faded out and not yet fading back in
+	var fadeOutTime = vars.Helper.Read<float>(fhPtr + fh["fadeOutTime"]);
+	if (fadeOutTime == -1) return true;
+
+	//To allow breaks, we also pause while on the main menu
+	return current.mmPanelIndex == 0;
 }
